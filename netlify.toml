@@ -1,0 +1,9 @@
+# 📁 netlify.toml
+[build]
+  functions = "netlify/functions"
+  publish = "dist" # or "build" for Create React App
+
+[[redirects]]
+  from = "/.netlify/functions/*"
+  to = "/.netlify/functions/:splat"
+  status = 200
