@@ -1,37 +1,26 @@
-// 📁 netlify/functions/submit-feedback.js
-const fs = require('fs');
-const path = require('path');
+const { MongoClient } = require('mongodb');
+require('dotenv').config();
 
 exports.handler = async (event) => {
-  if (event.httpMethod !== 'POST') {
-    return { statusCode: 405, body: 'Method Not Allowed' };
-  }
-
+  const client = new MongoClient(process.env.MONGO_URI);
   const data = JSON.parse(event.body);
-  const newFeedback = {
-    ...data,
-    timestamp: new Date().toISOString(),
-  };
-
-  const filePath = path.join(__dirname, 'feedback.json');
+  const timestamp = new Date();
 
   try {
-    let feedbacks = [];
-    if (fs.existsSync(filePath)) {
-      feedbacks = JSON.parse(fs.readFileSync(filePath));
-    }
-
-    feedbacks.push(newFeedback);
-    fs.writeFileSync(filePath, JSON.stringify(feedbacks, null, 2));
-
+    await client.connect();
+    const db = client.db('feedbackdb');
+    const collection = db.collection('feedbacks');
+    await collection.insertOne({ ...data, timestamp });
     return {
       statusCode: 200,
-      body: JSON.stringify({ message: 'Feedback saved successfully.' }),
+      body: JSON.stringify({ message: 'Success' }),
     };
   } catch (err) {
     return {
       statusCode: 500,
-      body: JSON.stringify({ error: 'Failed to save feedback.' }),
+      body: JSON.stringify({ error: err.message }),
     };
+  } finally {
+    await client.close();
   }
 };

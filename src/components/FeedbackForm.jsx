@@ -1,71 +1,84 @@
 import React, { useState } from 'react';
+import { db } from '../firebase-config';
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 
 export default function FeedbackForm() {
-  const [formData, setFormData] = useState({ name: '', email: '', message: '' });
-  const [status, setStatus] = useState('');
-  const [loading, setLoading] = useState(false);
-
-  const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
-  };
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [message, setMessage] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [showPopup, setShowPopup] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!formData.name || !formData.email || !formData.message) {
-      setStatus('⚠️ Please fill in all fields.');
-      return;
+    setSubmitting(true);
+    try {
+      await addDoc(collection(db, 'feedbacks'), {
+        name,
+        email,
+        message,
+        timestamp: serverTimestamp(),
+      });
+      setName('');
+      setEmail('');
+      setMessage('');
+      setShowPopup(true);
+
+      // Auto-close popup after 3 seconds
+      setTimeout(() => setShowPopup(false), 3000);
+    } catch (err) {
+      console.error('Submission failed', err);
+      alert('Submission failed!');
+    } finally {
+      setSubmitting(false);
     }
-
-    setLoading(true);
-    setStatus('');
-
-    const res = await fetch('/.netlify/functions/submit-feedback', {
-      method: 'POST',
-      body: JSON.stringify(formData),
-    });
-
-    if (res.status === 200) {
-      setFormData({ name: '', email: '', message: '' });
-      setStatus('✅ Feedback submitted!');
-    } else {
-      setStatus('❌ Submission failed.');
-    }
-    setLoading(false);
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 animate-fade-in">
-      <input
-        type="text"
-        name="name"
-        placeholder="Full Name"
-        className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring"
-        onChange={handleChange}
-        value={formData.name}
-      />
-      <input
-        type="email"
-        name="email"
-        placeholder="Email Address"
-        className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring"
-        onChange={handleChange}
-        value={formData.email}
-      />
-      <textarea
-        name="message"
-        placeholder="Your Feedback"
-        className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring"
-        onChange={handleChange}
-        value={formData.message}
-      ></textarea>
-      <button
-        type="submit"
-        className="bg-[var(--primary)] w-full text-white py-2 rounded-lg hover:opacity-90"
-        disabled={loading}
-      >
-        {loading ? 'Submitting...' : 'Submit Feedback'}
-      </button>
-      {status && <p className="text-sm text-center font-medium">{status}</p>}
-    </form>
+    <>
+      <form onSubmit={handleSubmit} className="space-y-4 relative z-10">
+        <input
+          type="text"
+          placeholder="Your Name"
+          value={name}
+          required
+          onChange={(e) => setName(e.target.value)}
+          className="w-full px-4 py-2 border rounded-lg bg-[var(--card)] text-[var(--text)]"
+        />
+        <input
+          type="email"
+          placeholder="Your Email"
+          value={email}
+          required
+          onChange={(e) => setEmail(e.target.value)}
+          className="w-full px-4 py-2 border rounded-lg bg-[var(--card)] text-[var(--text)]"
+        />
+        <textarea
+          placeholder="Your Feedback"
+          value={message}
+          required
+          onChange={(e) => setMessage(e.target.value)}
+          className="w-full px-4 py-2 border rounded-lg bg-[var(--card)] text-[var(--text)]"
+        />
+        <button
+          type="submit"
+          disabled={submitting}
+          className="w-full py-2 rounded-xl bg-indigo-600 text-white hover:bg-indigo-800 font-semibold"
+        >
+          {submitting ? 'Submitting...' : 'Submit Feedback'}
+        </button>
+      </form>
+
+      {showPopup && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+          onClick={() => setShowPopup(false)} // dismiss on click
+        >
+          <div className="bg-black border border-green-500 text-green-400 px-6 py-4 rounded-xl shadow-xl text-lg font-semibold">
+            ✅ Feedback Submitted!
+          </div>
+        </div>
+      )}
+    </>
   );
 }
